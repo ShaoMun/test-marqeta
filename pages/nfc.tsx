@@ -30,11 +30,27 @@ export default function NFCPage() {
   const [error, setError] = useState<string | null>(null);
   const [setupRequired, setSetupRequired] = useState(false);
 
-  // Check for Web NFC support on mount
+  // Check for Web NFC support on mount and read URL params
   useEffect(() => {
     if (typeof window !== 'undefined') {
       // Check for NDEFReader which indicates Web NFC support
       setIsNFCSupported('NDEFReader' in window);
+
+      // Check if PAN is in URL (from NFC tag tap)
+      const params = new URLSearchParams(window.location.search);
+      const panFromUrl = params.get('pan');
+      if (panFromUrl) {
+        setScannedPAN(panFromUrl);
+        // Auto-process payment if amount is also provided
+        const amountFromUrl = params.get('amount');
+        if (amountFromUrl) {
+          setTransactionAmount(amountFromUrl);
+          // Auto-process payment after a short delay
+          setTimeout(() => {
+            processPayment(panFromUrl);
+          }, 500);
+        }
+      }
     }
   }, []);
 
@@ -395,24 +411,60 @@ export default function NFCPage() {
         {/* React Native Integration Note */}
         <div className="mt-8 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl shadow-xl p-8 border border-purple-200">
           <h2 className="text-xl font-bold text-gray-900 mb-4">
-            React Native NFC Integration
+            iOS-Compatible NFC URL Tags
           </h2>
           <p className="text-gray-700 mb-4">
-            For production mobile apps, use React Native with NFC libraries:
+            Since iOS doesn't support Web NFC, use <strong>NFC URL tags</strong> that work on both iOS and Android:
           </p>
-          <div className="space-y-3 text-sm">
-            <div>
-              <p className="font-medium text-gray-900">iOS:</p>
-              <code className="text-purple-700 bg-white px-2 py-1 rounded">react-native-nfc-manager</code>
-            </div>
-            <div>
-              <p className="font-medium text-gray-900">Android:</p>
-              <code className="text-purple-700 bg-white px-2 py-1 rounded">react-native-nfc-manager</code>
+
+          <div className="bg-white rounded-lg p-4 border border-purple-300 mb-4">
+            <h3 className="font-medium text-gray-900 mb-2">Step 1: Create Your NFC Tag URL</h3>
+            <p className="text-sm text-gray-600 mb-2">Use an NFC writer app (like "NFC Tools") to write this URL to your tag:</p>
+            <code className="text-xs bg-gray-100 px-3 py-2 rounded block break-all text-purple-700">
+              {typeof window !== 'undefined' ? `${window.location.origin}/nfc?pan=5112345123451234&amount=10.00` : '/nfc?pan=5112345123451234&amount=10.00'}
+            </code>
+          </div>
+
+          <div className="bg-white rounded-lg p-4 border border-purple-300 mb-4">
+            <h3 className="font-medium text-gray-900 mb-2">Step 2: Test the Tag</h3>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• Tap the NFC tag with your iPhone (iOS) → Opens this page and auto-processes payment</li>
+              <li>• Tap with Android phone → Same behavior</li>
+            </ul>
+          </div>
+
+          <div className="bg-white rounded-lg p-4 border border-purple-300">
+            <h3 className="font-medium text-gray-900 mb-2">Create Custom Tag Links</h3>
+            <div className="space-y-2">
+              <input
+                type="text"
+                id="customPan"
+                placeholder="Card PAN (e.g., 5112345123451234)"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+              />
+              <input
+                type="number"
+                id="customAmount"
+                placeholder="Amount (e.g., 10.00)"
+                step="0.01"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+              />
+              <button
+                onClick={() => {
+                  const pan = (document.getElementById('customPan') as HTMLInputElement)?.value;
+                  const amount = (document.getElementById('customAmount') as HTMLInputElement)?.value;
+                  if (pan && amount && typeof window !== 'undefined') {
+                    const url = `${window.location.origin}/nfc?pan=${pan}&amount=${amount}`;
+                    navigator.clipboard.writeText(url);
+                    alert('URL copied! Paste this into your NFC writer app:\n\n' + url);
+                  }
+                }}
+                className="w-full px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm font-medium"
+              >
+                Generate & Copy NFC Tag URL
+              </button>
             </div>
           </div>
-          <p className="text-xs text-gray-600 mt-4">
-            The React Native app would read the PAN from the NFC card and call the <code className="bg-gray-200 px-1 rounded">/api/marqeta/nfc-pay</code> endpoint.
-          </p>
         </div>
       </div>
     </div>
