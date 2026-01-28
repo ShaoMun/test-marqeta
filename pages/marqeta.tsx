@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface CardData {
   token: string;
@@ -42,6 +42,55 @@ export default function MarqetaPage() {
   const [transactionResult, setTransactionResult] = useState<TransactionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [balance, setBalance] = useState<{ ledger_balance: number; available_balance: number } | null>(null);
+  const [isNFCSupported, setIsNFCSupported] = useState(false);
+  const [isReadingNFC, setIsReadingNFC] = useState(false);
+  const [copiedPAN, setCopiedPAN] = useState(false);
+
+  // Check for Web NFC support on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsNFCSupported('NDEFReader' in window);
+    }
+  }, []);
+
+  const copyPAN = () => {
+    if (setupData?.card.pan) {
+      navigator.clipboard.writeText(setupData.card.pan);
+      setCopiedPAN(true);
+      setTimeout(() => setCopiedPAN(false), 2000);
+    }
+  };
+
+  const writeToNFCCard = async () => {
+    if (!setupData?.card.pan) return;
+
+    if (!isNFCSupported) {
+      setError('NFC is not supported in this browser. Please use Chrome on Android.');
+      return;
+    }
+
+    try {
+      setIsReadingNFC(true);
+      setError(null);
+
+      // @ts-ignore - NDEFWriter is not in standard TypeScript types yet
+      const ndef = new NDEFWriter();
+
+      // @ts-ignore
+      await ndef.write({
+        records: [{
+          recordType: 'text',
+          data: setupData.card.pan
+        }]
+      });
+
+      alert('PAN successfully written to NFC card!\n\nYou can now use this card for NFC payments at /nfc');
+      setIsReadingNFC(false);
+    } catch (err: any) {
+      setIsReadingNFC(false);
+      setError(err.message || 'Failed to write to NFC card');
+    }
+  };
 
   const setupJIT = async () => {
     setLoading(true);
@@ -197,7 +246,7 @@ export default function MarqetaPage() {
                     </span>
                   </div>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between mb-6">
                   <div>
                     <p className="text-xs opacity-80 mb-1">CVV</p>
                     <p className="text-lg font-mono">{setupData.card.cvv}</p>
@@ -211,6 +260,35 @@ export default function MarqetaPage() {
                     <p className="text-lg">{setupData.user.name}</p>
                   </div>
                 </div>
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={copyPAN}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    {copiedPAN ? 'Copied!' : 'Copy PAN'}
+                  </button>
+                  {isNFCSupported && (
+                    <button
+                      onClick={writeToNFCCard}
+                      disabled={isReadingNFC}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      {isReadingNFC ? 'Writing...' : 'Write to NFC Card'}
+                    </button>
+                  )}
+                </div>
+                {!isNFCSupported && (
+                  <p className="text-xs opacity-70 mt-2 text-center">
+                    NFC not supported in this browser. Use Chrome on Android to write PAN to NFC card.
+                  </p>
+                )}
               </div>
 
               {/* Balance Display */}
@@ -347,7 +425,7 @@ export default function MarqetaPage() {
         </div>
 
         {/* Information Section */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">How JIT Funding Works</h2>
           <div className="space-y-4 text-gray-700">
             <div className="flex items-start">
@@ -387,6 +465,35 @@ export default function MarqetaPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* NFC Integration Section */}
+        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl shadow-xl p-8">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-white">NFC Payment Integration</h2>
+              <p className="text-purple-100">Tap to pay with your NFC card</p>
+            </div>
+          </div>
+          <div className="bg-white bg-opacity-10 rounded-lg p-4 mb-4">
+            <p className="text-white text-sm">
+              <strong>Quick Start:</strong> Copy the PAN above and write it to an NFC card, then tap to process payments instantly at <a href="/nfc" className="underline font-bold">/nfc</a>
+            </p>
+          </div>
+          <a
+            href="/nfc"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-purple-600 font-medium rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Go to NFC Payment Page
+          </a>
         </div>
       </div>
     </div>
