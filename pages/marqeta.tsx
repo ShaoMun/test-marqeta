@@ -54,8 +54,8 @@ export default function MarqetaPage() {
   };
 
   const copyPaymentLink = () => {
-    if (setupData?.card.pan && typeof window !== 'undefined') {
-      const paymentLink = `${window.location.origin}/nfc/${setupData.card.pan}`;
+    if (setupData?.card.token && typeof window !== 'undefined') {
+      const paymentLink = `${window.location.origin}/nfc/${setupData.card.token}`;
       navigator.clipboard.writeText(paymentLink);
       setCopiedPaymentLink(true);
       setTimeout(() => setCopiedPaymentLink(false), 2000);
@@ -261,7 +261,7 @@ export default function MarqetaPage() {
                   <p className="text-xs text-green-600 mb-2 font-medium">PAYMENT LINK:</p>
                   <div className="flex items-center justify-between gap-3">
                     <code className="text-sm font-mono text-gray-900 break-all flex-1">
-                      {typeof window !== 'undefined' ? `${window.location.origin}/nfc/${setupData.card.pan}` : `/nfc/${setupData.card.pan}`}
+                      {typeof window !== 'undefined' ? `${window.location.origin}/nfc/${setupData.card.token}` : `/nfc/${setupData.card.token}`}
                     </code>
                     <button
                       onClick={copyPaymentLink}

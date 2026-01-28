@@ -12,10 +12,10 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { pan, pin, amount } = req.body;
+  const { cardToken, pin, amount } = req.body;
 
   // Validate inputs
-  if (!pan || !pin || !amount) {
+  if (!cardToken || !pin || !amount) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
@@ -43,7 +43,7 @@ export default async function handler(
       },
       body: JSON.stringify({
         amount: (amount * 100).toString(), // Convert to cents, then to string
-        card_token: pan,
+        card_token: cardToken,
         card_acceptor: {
           mid: '1234567890',
           name: 'PIN Payment',
@@ -72,7 +72,7 @@ export default async function handler(
       data: {
         transaction,
         amount,
-        cardLast4: pan.slice(-4),
+        cardLast4: cardToken.slice(-4),
       },
     });
 

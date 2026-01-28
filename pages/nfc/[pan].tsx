@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 
 export default function NFCPaymentPage() {
   const router = useRouter();
-  const { pan } = router.query;
+  const { pan } = router.query; // This is actually the card token
 
   const [pin, setPin] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -12,7 +12,7 @@ export default function NFCPaymentPage() {
   const [amount, setAmount] = useState('10.00');
 
   useEffect(() => {
-    // Redirect if no PAN provided
+    // Redirect if no card token provided
     if (!pan && router.isReady) {
       router.push('/marqeta');
     }
@@ -46,7 +46,7 @@ export default function NFCPaymentPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          pan,
+          cardToken: pan, // This is the card token from URL
           pin,
           amount: parseFloat(amount),
         }),
@@ -205,7 +205,7 @@ export default function NFCPaymentPage() {
 
         {/* Info Text */}
         <p className="text-xs text-gray-500 text-center mt-6">
-          Payment will be processed to card ending in {pan?.slice(-4)}
+          Payment will be processed to card token: {pan}
         </p>
         <p className="text-xs text-indigo-600 text-center mt-2 font-medium">
           Demo PIN: 123456
