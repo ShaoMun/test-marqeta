@@ -1,10 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-// In production, store these hashed in database
-// For demo, using hardcoded values
-const CARD_PINS: Record<string, string> = {
-  '5112345123451234': '123456', // Demo card PIN
-};
+// Demo mode: Universal PIN for all cards during development
+// In production, store card-specific hashed PINs in database
+const DEMO_PIN = '123456';
 
 export default async function handler(
   req: NextApiRequest,
@@ -25,10 +23,9 @@ export default async function handler(
     return res.status(400).json({ error: 'Invalid PIN length' });
   }
 
-  // Validate PIN
-  const correctPin = CARD_PINS[pan];
-  if (!correctPin || correctPin !== pin) {
-    return res.status(401).json({ error: 'Invalid PIN' });
+  // Validate PIN (Demo mode: accept universal PIN for any card)
+  if (pin !== DEMO_PIN) {
+    return res.status(401).json({ error: 'Invalid PIN. Use demo PIN: 123456' });
   }
 
   try {

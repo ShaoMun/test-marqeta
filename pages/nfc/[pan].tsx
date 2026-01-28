@@ -207,6 +207,9 @@ export default function NFCPaymentPage() {
         <p className="text-xs text-gray-500 text-center mt-6">
           Payment will be processed to card ending in {pan?.slice(-4)}
         </p>
+        <p className="text-xs text-indigo-600 text-center mt-2 font-medium">
+          Demo PIN: 123456
+        </p>
       </div>
     </div>
   );
