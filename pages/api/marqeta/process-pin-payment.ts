@@ -1,4 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import {
+  simulateTransaction,
+  clearTransaction
+} from '../../../lib/marqeta';
 
 // Demo mode: Universal PIN for all cards during development
 // In production, store card-specific hashed PINs in database
@@ -29,55 +33,71 @@ export default async function handler(
   }
 
   try {
-    // Process payment via Marqeta API
-    const MARQETA_API_BASE = 'https://sandbox-api.marqeta.com';
-    const APP_TOKEN = process.env.MARQETA_APP_TOKEN || 'be46425e-3a40-43c3-88c5-4d086d36f1c6';
-    const ADMIN_ACCESS_TOKEN = process.env.MARQETA_ADMIN_TOKEN || '179182fd-2702-402b-b091-986e90e486a5';
+    // Convert amount to cents
+    const amountInCents = Math.round(amount * 100);
 
-    const marqetaResponse = await fetch(`${MARQETA_API_BASE}/v3/simulations/cardtransactions/authorization`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': `Basic ${Buffer.from(`${APP_TOKEN}:${ADMIN_ACCESS_TOKEN}`).toString('base64')}`,
-      },
-      body: JSON.stringify({
-        amount: (amount * 100).toString(), // Convert to cents, then to string
-        card_token: cardToken,
-        card_acceptor: {
-          mid: '1234567890',
-          name: 'PIN Payment',
-          street_address: '123 Main St',
-          city: 'San Francisco',
-          state: 'CA',
-          zip: '94105',
-          country_code: 'USA'
-        },
-        network: 'VISA',
-        metadata: {
-          payment_method: 'pin_entry',
-        },
-      }),
-    });
+    // Simulate the transaction (authorize)
+    const transaction = await simulateTransaction(cardToken, amountInCents);
 
-    if (!marqetaResponse.ok) {
-      const error = await marqetaResponse.text();
-      throw new Error(`Marqeta API error: ${error}`);
+    // Immediately clear the transaction to CLEARED state
+    if (transaction.transaction?.token) {
+      try {
+        const clearedTransaction = await clearTransaction(
+          transaction.transaction.token,
+          amountInCents
+        );
+
+        // Return the cleared transaction with original data merged
+        return res.status(200).json({
+          success: true,
+          data: {
+            transaction: {
+              ...transaction.transaction,
+              state: 'CLEARED'
+            },
+            gpa_order: transaction.gpa_order,
+            cleared: true,
+            cardLast4: cardToken.slice(-4),
+            amount,
+          }
+        });
+      } catch (clearError: any) {
+        // If clearing fails, still return the authorized transaction
+        console.error('Auto-clear failed, returning authorized transaction:', clearError);
+        return res.status(200).json({
+          success: true,
+          data: {
+            ...transaction,
+            warning: 'Transaction authorized but auto-clear failed'
+          }
+        });
+      }
     }
 
-    const transaction = await marqetaResponse.json();
-
-    res.status(200).json({
+    // Return the transaction without clearing (shouldn't reach here)
+    return res.status(200).json({
       success: true,
-      data: {
-        transaction,
-        amount,
-        cardLast4: cardToken.slice(-4),
-      },
+      data: transaction
     });
 
   } catch (error: any) {
     console.error('Payment processing error:', error);
-    res.status(500).json({ error: error.message || 'Payment processing failed' });
+
+    // Extract detailed error information
+    let errorMessage = 'Payment processing failed';
+    let errorDetails = null;
+
+    if (error?.error) {
+      errorMessage = error.error.message || error.error;
+      errorDetails = error.error;
+    } else if (error?.message) {
+      errorMessage = error.message;
+    }
+
+    return res.status(error?.status || 500).json({
+      success: false,
+      error: errorMessage,
+      details: errorDetails
+    });
   }
 }
